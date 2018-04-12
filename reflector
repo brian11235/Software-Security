@@ -1,0 +1,138 @@
+#!/usr/bin/env python
+
+import argparse
+import sys
+from scapy.all import *
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('--interface',dest='interface',required=True)
+parser.add_argument('--victim-ip',dest='victimIp',required=True)
+parser.add_argument('--victim-ethernet',dest='victimEthernet',required=True)
+parser.add_argument('--reflector-ip',dest='reflectorIp',required=True)
+parser.add_argument('--reflector-ethernet',dest='reflectorEthernet',required=True)
+
+args = parser.parse_args()
+
+
+#########ARP RESPONSE###########
+def implementARP(pkt):
+		if(pkt.haslayer(ARP)):
+	#		print(pkt.show())
+			attackIp=pkt[ARP].psrc
+			attackMac=pkt[ARP].hwsrc	
+			if(pkt[ARP].pdst==args.victimIp):
+				sendp(Ether(src=args.victimEthernet,dst=pkt[Ether].src)/ARP(hwsrc=args.victimEthernet,psrc=args.victimIp,hwdst=attackMac,pdst=attackIp,op="is-at"),iface=args.interface)			 
+			elif(pkt[ARP].pdst==args.reflectorIp):
+	#			print(arp.show())
+				sendp(Ether(src=args.reflectorEthernet,dst=pkt[Ether].src)/ARP(hwsrc=args.reflectorEthernet,psrc=args.reflectorIp,hwdst=attackMac,pdst=attackIp,op="is-at"),iface=args.interface)
+		
+		else:	
+			dealThePacketage(pkt)
+
+	
+####### reverse src and dst #######
+#def buildDirection(pdst):
+#	if(pdst==args.victimEthernet):
+#		return args.reflectorIp,args.reflectorEthernet
+#	if(pdst==args.reflectorEthernet):
+#		return args.victimIp,args.victimEthernet
+#	else:
+#		return None
+#########handle TCP, UDP, IP package ##########
+def dealThePacketage(pkt):
+														   
+#		if(pkt.haslayer(ICMP)):
+#			if(pkt[Ether].dst==args.victimEthernet): 
+#				originalMac=pkt[Ether].src
+#				originalIp=pkt[IP].src
+#				send(IP(src=args.reflectorIp,dst=originalIp)/ICMP(id=pkt[ICMP].id,seq=pkt[ICMP].seq,type="echo-request"),iface=args.interface)			
+#			elif(pkt[Ether].dst==args.reflectorEthernet):
+#				originalMac=pkt[Ether].src
+#				originalIp=pkt[IP].src
+#				send(IP(src=args.victimIp,dst=originalIp)/ICMP(id=pkt[ICMP].id,seq=pkt[ICMP].seq,type="echo-reply"),iface=args.interface)
+#		elif(pkt.haslayer(TCP)):
+	#		print("TCPTCPTCPTCPTCPTCP")
+	#		print(pkt.show())
+#			if(pkt[Ether].dst==args.victimEthernet):
+	#			print("11111111111111")
+#				sendp(pkt,iface=args.interface)
+#				originalMac=pkt[Ether].src
+#				originalIp=pkt[IP].src
+#				if(pkt.haslayer(Raw)):
+#					send(IP(src=args.reflectorIp,dst=originalIp)/TCP(sport=pkt[TCP].sport,dport=pkt[TCP].dport,seq=pkt[TCP].seq,flags=pkt[TCP].flags,options=pkt[TCP].options,ack=pkt[TCP].ack)/pkt[Raw].load,iface=args.interface)
+#				else:
+#					send(IP(src=args.reflectorIp,dst=originalIp)/TCP(sport=pkt[TCP].sport,dport=pkt[TCP].dport,seq=pkt[TCP].seq,flags=pkt[TCP].flags,options=pkt[TCP].options,ack=pkt[TCP].ack),iface=args.interface)
+	#			print("TCPSENDTCPSENDTCPSEND")			
+#			elif(pkt[Ether].dst==args.reflectorEthernet):
+	#			print("222222222222222222222")			
+#				sendp(pkt,iface=args.interface)	
+#				originalMac=pkt[Ether].src
+#				originalIp=pkt[IP].src
+#				if(pkt.haslayer(Raw)):
+#					send(IP(src=args.victimIp,dst=originalIp)/TCP(sport=pkt[TCP].sport,dport=pkt[TCP].dport,seq=pkt[TCP].seq,flags=pkt[TCP].flags,options=pkt[TCP].options,ack=pkt[TCP].ack)/pkt[Raw].load,iface=args.interface)
+#				else:
+#					send(IP(src=args.victimIp,dst=originalIp)/TCP(sport=pkt[TCP].sport,dport=pkt[TCP].dport,seq=pkt[TCP].seq,flags=pkt[TCP].flags,options=pkt[TCP].options,ack=pkt[TCP].ack),iface=args.interface)
+	#		 	print("TCPSENDTCPSENDTCPSEND")
+#		else:
+#				print("UDPUDPUDPUDPUDPUDP")
+#				print(pkt.show())
+				if(pkt.haslayer(IP) and pkt[IP].dst==args.victimIp):
+					originalMac=pkt[Ether].src
+					originalIp=pkt[IP].src
+					pkt[IP].dst=originalIp
+					pkt[Ether].dst=originalMac
+					pkt[IP].src=args.reflectorIp
+					pkt[Ether].src=args.reflectorEthernet
+					del pkt.chksum
+					if(pkt.haslayer(ICMP)):
+						del pkt[ICMP].chksum
+					if(pkt.haslayer(TCP)):
+						del pkt[TCP].chksum
+					if(pkt.haslayer(UDP)):
+						del pkt[UDP].chksum
+					print(pkt.show())
+					sendp(pkt, iface=args.interface)		
+				elif(pkt.haslayer(IP) and pkt[IP].dst==args.reflectorIp):
+					originalMac=pkt[Ether].src
+					originalIp=pkt[IP].src
+					pkt[IP].dst=originalIp
+					pkt[Ether].dst=originalMac
+					pkt[IP].src=args.victimIp
+					pkt[Ether].src=args.victimEthernet
+					del pkt.chksum
+					if(pkt.haslayer(ICMP)):
+						del pkt[ICMP].chksum
+					if(pkt.haslayer(TCP)):
+						del pkt[TCP].chksum
+					if(pkt.haslayer(UDP)):
+						del pkt[UDP].chksum
+					sendp(pkt, iface=args.interface)
+
+######## stop sniff #######
+#vicARPStatus=False
+#refARPStatus=False
+#def stopfilter(x):
+#	global vicARPStatus
+#	global	refARPStatus
+#	if(x[Ether].dst == args.victimEthernet):	
+#		vicARPStatus=True         	
+#     	elif(x[Ether].dst == args.reflectorEthernet):
+#		refARPStatus=True
+#	if(vicARPStatus==True): #and refARPStatus==True
+#		return True;
+#	else:
+#		return False;
+
+if __name__=="__main__":
+	#sniff the package int interface and implement ARP
+#	sniff(iface=args.interface,prn=implementARP,stop_filter=stopfilter)
+	sniff(iface=args.interface,prn=implementARP)
+	#afer we send the packetage, handle reply
+#	sniff(iface=args.interface,prn=dealThePacketage)
+
+
+
+
+
+
